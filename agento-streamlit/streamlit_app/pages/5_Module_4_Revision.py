@@ -11,6 +11,9 @@ from contextlib import redirect_stdout, redirect_stderr
 import traceback
 import nest_asyncio
 
+# DEBUG: Verify this version is running
+st.sidebar.error("🔧 DEBUG: Running FIXED version - Module 4 v2.1")
+
 # Apply nest_asyncio to allow nested event loops
 nest_asyncio.apply()
 
