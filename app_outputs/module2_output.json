@@ -1,0 +1,106 @@
+{
+  "goal": "My goal is to create a new kind of small neighborhood where all of the homes and other buildings, including commercial are owned and occupied and operated by a group of people who choose to live near and with each other in a community. I need to have a business and a legal strategy for this plan specifically in the state of California in any of the major cities.",
+  "selected_criteria": [
+    {
+      "criteria": "Establish a Legal Entity",
+      "reasoning": "Forming a legal entity like a housing cooperative or cohousing structure is fundamental. It provides the framework for collective ownership, governance, and property management, which are crucial for the community’s legal and operational integrity.",
+      "rating": 9
+    },
+    {
+      "criteria": "Secure Financing and Financial Structures",
+      "reasoning": "Securing appropriate financing is vital for the initial establishment and sustainability of the community. Lenders experienced with cooperative models and possible grants are essential financial components to make the vision a reality.",
+      "rating": 8
+    },
+    {
+      "criteria": "Compliance with Zoning and Housing Laws",
+      "reasoning": "Adhering to local zoning laws, building codes, and the California Housing Accountability Act ensures regulatory compliance. This reduces the risk of legal issues and supports the community’s long-term existence within a city environment.",
+      "rating": 9
+    }
+  ],
+  "plan_outlines": [
+    {
+      "plan_title": "Cooperative Living Community",
+      "plan_description": "Develop a cooperative housing community where residents collectively own and manage properties.",
+      "plan_items": [
+        {
+          "item_title": "Form a Housing Cooperative",
+          "item_description": "Establish a cooperative legal entity under California’s legal framework to manage collective ownership and governance."
+        },
+        {
+          "item_title": "Secure Cooperative Financing",
+          "item_description": "Explore financial institutions and cooperative banks that specialize in funding cooperative housing projects to structure the financial plan."
+        },
+        {
+          "item_title": "Zoning and Legal Compliance",
+          "item_description": "Work with legal experts to ensure the cooperative complies with city zoning laws and housing regulations."
+        }
+      ],
+      "reasoning": "Using a cooperative model aligns well with the communal and ownership aspects of the goal and provides a clear structure for legal and financial operations.",
+      "rating": 9,
+      "created_by": "StrategicPlannerAI"
+    },
+    {
+      "plan_title": "Community Land Trust Model",
+      "plan_description": "Utilize a Community Land Trust (CLT) as the foundation for establishing ownership and operation of a neighborhood collective.",
+      "plan_items": [
+        {
+          "item_title": "Establish a Community Land Trust",
+          "item_description": "Create a CLT to acquire and hold land, ensuring permanent community-centered control and prevention of speculation."
+        },
+        {
+          "item_title": "Innovative Financing Solutions",
+          "item_description": "Work with nonprofit organizations and local government programs to secure grants and low-interest loans specifically available for CLTs."
+        },
+        {
+          "item_title": "Urban Planning and Zoning Adjustments",
+          "item_description": "Collaborate with city planners to verify compliance with zoning laws and negotiate any necessary adjustments to accommodate the CLT structure."
+        }
+      ],
+      "reasoning": "The CLT model ensures long-term affordability and community ownership while allowing flexibility in legal and financial arrangements.",
+      "rating": 8,
+      "created_by": "StrategicPlannerAI"
+    },
+    {
+      "plan_title": "Eco-Village Cooperative",
+      "plan_description": "Develop an eco-village based on sustainable principles with shared ownership and holistic community integration.",
+      "plan_items": [
+        {
+          "item_title": "Formation of an Eco-Village LLC",
+          "item_description": "Establish an LLC designed to incorporate a collective ownership model, allowing flexible investment and management."
+        },
+        {
+          "item_title": "Green Funding and Grants",
+          "item_description": "Explore environmental grants and eco-friendly investment options to finance the development of sustainable infrastructure."
+        },
+        {
+          "item_title": "Environmental and Zoning Law Compliance",
+          "item_description": "Conduct an environmental impact assessment and work with local authorities to ensure compliance with zoning laws that support eco-friendly initiatives."
+        }
+      ],
+      "reasoning": "The eco-village approach combines community living with sustainability practices, appealing to environmentally-conscious investors and residents.",
+      "rating": 7,
+      "created_by": "StrategicPlannerAI"
+    }
+  ],
+  "selected_outline": {
+    "plan_title": "Cooperative Living Community",
+    "plan_description": "Develop a cooperative housing community where residents collectively own and manage properties.",
+    "plan_items": [
+      {
+        "item_title": "Form a Housing Cooperative",
+        "item_description": "Establish a cooperative legal entity under California’s legal framework to manage collective ownership and governance."
+      },
+      {
+        "item_title": "Secure Cooperative Financing",
+        "item_description": "Explore financial institutions and cooperative banks that specialize in funding cooperative housing projects to structure the financial plan."
+      },
+      {
+        "item_title": "Zoning and Legal Compliance",
+        "item_description": "Work with legal experts to ensure the cooperative complies with city zoning laws and housing regulations."
+      }
+    ],
+    "reasoning": "Using a cooperative model aligns well with the communal and ownership aspects of the goal and provides a clear structure for legal and financial operations.",
+    "rating": 9,
+    "created_by": "StrategicPlannerAI"
+  }
+}
