@@ -1,3 +1,9 @@
+# uv venv
+# source .venv/bin/activate
+# uv pip install -r requirements.txt
+# streamlit run app.py
+
+
 import streamlit as st
 import os
 import sys
