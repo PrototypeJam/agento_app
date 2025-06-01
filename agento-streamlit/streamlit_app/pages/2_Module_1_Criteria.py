@@ -76,7 +76,7 @@ if st.button("🚀 Run Module 1", type="primary", disabled=not user_goal):
             status_placeholder.info("🤖 Calling OpenAI API to generate success criteria...")
             
             # Run the coroutine
-            await run_module()
+            asyncio.run(run_module())
             
             # Read the output
             if os.path.exists(output_file):
