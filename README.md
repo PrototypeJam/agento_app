@@ -1,5 +1,7 @@
 # Complete Phase 1 Setup Instructions for Agento Streamlit App
 
+See the live app at: [https://agento.streamlit.app/](https://agento.streamlit.app/)
+
 ## Project Overview
 You'll be creating a Streamlit web application for the Agento multi-agent planning system. This is Phase 1 (MVP) which includes basic functionality for Module 1 only.
 
