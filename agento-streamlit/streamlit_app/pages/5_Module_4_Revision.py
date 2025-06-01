@@ -324,7 +324,8 @@ if st.button("🚀 Run Module 4: Identify Revisions", type="primary"):
                     item_details = output_data.get('item_details', [])
                     revisions_requested = sum(1 for item in item_details if item.get('revision_request'))
                     revisions_approved = sum(1 for item in item_details 
-                                           if item.get('revision_evaluation', {}).get('approved'))
+                                           if item.get('revision_evaluation') and
+                                           item.get('revision_evaluation', {}).get('approved'))
                     coverage_summary = output_data.get('criteria_coverage_summary', {})
                     
                     standard_log = f"""[{timestamp}] Module 4 Started
@@ -407,7 +408,8 @@ if st.session_state.module_outputs.get('module4'):
     item_details = output_data.get('item_details', [])
     revisions_requested = sum(1 for item in item_details if item.get('revision_request'))
     revisions_approved = sum(1 for item in item_details 
-                           if item.get('revision_evaluation', {}).get('approved'))
+                           if item.get('revision_evaluation') and 
+                           item.get('revision_evaluation', {}).get('approved'))
     revisions_rejected = revisions_requested - revisions_approved
     
     col1, col2, col3, col4 = st.columns(4)
