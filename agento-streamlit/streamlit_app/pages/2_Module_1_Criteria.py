@@ -9,6 +9,10 @@ import tempfile
 import io
 from contextlib import redirect_stdout, redirect_stderr
 import traceback
+import nest_asyncio
+
+# THIS IS CRITICAL: Apply nest_asyncio to allow nested event loops
+nest_asyncio.apply()
 
 # Debug: Show current file location
 st.sidebar.write("Debug Info:")
@@ -62,6 +66,27 @@ else:
     st.info("For MVP, please use Text Input. JSON input will be available in the next version.")
     user_goal = None
 
+# Helper function to run async code in Streamlit
+def run_async_function(coro):
+    """Run async function safely in Streamlit environment"""
+    try:
+        # Try to get existing event loop
+        loop = asyncio.get_event_loop()
+        if loop.is_running():
+            # If loop is running, use nest_asyncio
+            return asyncio.run(coro)
+        else:
+            # If no loop is running, create new one
+            return asyncio.run(coro)
+    except RuntimeError:
+        # Fallback: create new event loop
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+        try:
+            return loop.run_until_complete(coro)
+        finally:
+            loop.close()
+
 # Run button
 if st.button("🚀 Run Module 1", type="primary", disabled=not user_goal):
     update_module_status('module1', 'in_progress')
@@ -109,15 +134,16 @@ if st.button("🚀 Run Module 1", type="primary", disabled=not user_goal):
             
             status_placeholder.info("🔄 Initializing Module 1...")
             
-            # Define the async wrapper function INSIDE the try block
+            # Define the async wrapper function
             async def run_module_async():
                 with debug_container:
                     st.write("Step 4: About to call run_module_1")
                     st.code(f"Goal being passed: {user_goal}")
                     st.code(f"Output file: {output_file}")
                 
-                # Call the actual function
-                result = await run_module_1(user_goal, output_file)
+                # Call the actual function with captured output
+                with redirect_stdout(stdout_capture), redirect_stderr(stderr_capture):
+                    result = await run_module_1(user_goal, output_file)
                 
                 with debug_container:
                     st.write("Step 5: run_module_1 completed")
@@ -128,13 +154,12 @@ if st.button("🚀 Run Module 1", type="primary", disabled=not user_goal):
             # Show running status
             status_placeholder.info("🤖 Calling OpenAI API to generate success criteria...")
             
-            # Run the coroutine with proper output capture
+            # Run the coroutine using our safe async runner
             with debug_container:
-                st.write("Step 6: Running async function")
+                st.write("Step 6: Running async function safely")
             
-            # Use asyncio.run with captured output
-            with redirect_stdout(stdout_capture), redirect_stderr(stderr_capture):
-                asyncio.run(run_module_async())
+            # Use our safe async runner
+            result = run_async_function(run_module_async())
             
             # Check what was captured
             with debug_container:
