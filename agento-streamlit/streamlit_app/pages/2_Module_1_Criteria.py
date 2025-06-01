@@ -81,6 +81,7 @@ if st.button("🚀 Run Module 1", type="primary", disabled=not user_goal):
             with debug_container:
                 st.write("Step 1: Environment setup")
                 st.code(f"OPENAI_API_KEY set: {'Yes' if os.environ.get('OPENAI_API_KEY') else 'No'}")
+                st.code(f"User goal: {user_goal}")
                 
                 # Try to import the module
                 st.write("Step 2: Importing module1")
@@ -108,29 +109,32 @@ if st.button("🚀 Run Module 1", type="primary", disabled=not user_goal):
             
             status_placeholder.info("🔄 Initializing Module 1...")
             
-            # Run the actual module with output capture
-            async def run_module():
-                with redirect_stdout(stdout_capture), redirect_stderr(stderr_capture):
-                    with debug_container:
-                        st.write("Step 4: About to call run_module_1")
-                        st.code(f"Goal: {user_goal}")
-                        st.code(f"Output file: {output_file}")
-                    
-                    # Call the actual function
-                    result = await run_module_1(user_goal, output_file)
-                    
-                    with debug_container:
-                        st.write("Step 5: run_module_1 completed")
-                        st.code(f"Return value: {result}")
+            # Define the async wrapper function INSIDE the try block
+            async def run_module_async():
+                with debug_container:
+                    st.write("Step 4: About to call run_module_1")
+                    st.code(f"Goal being passed: {user_goal}")
+                    st.code(f"Output file: {output_file}")
+                
+                # Call the actual function
+                result = await run_module_1(user_goal, output_file)
+                
+                with debug_container:
+                    st.write("Step 5: run_module_1 completed")
+                    st.code(f"Return value: {result}")
+                
+                return result
             
             # Show running status
             status_placeholder.info("🤖 Calling OpenAI API to generate success criteria...")
             
-            # Run the coroutine
+            # Run the coroutine with proper output capture
             with debug_container:
                 st.write("Step 6: Running async function")
             
-            asyncio.run(run_module())
+            # Use asyncio.run with captured output
+            with redirect_stdout(stdout_capture), redirect_stderr(stderr_capture):
+                asyncio.run(run_module_async())
             
             # Check what was captured
             with debug_container:
@@ -152,34 +156,38 @@ if st.button("🚀 Run Module 1", type="primary", disabled=not user_goal):
                 with debug_container:
                     st.write("Step 8: Reading output file")
                     st.code(f"File size: {len(content)} bytes")
-                    st.text_area("Raw file content:", content, height=200)
+                    if content:
+                        st.text_area("Raw file content:", content, height=200)
+                    else:
+                        st.error("⚠️ Output file is empty!")
                 
-                # Parse JSON
-                output_data = json.loads(content)
-                
-                with debug_container:
-                    st.write("Step 9: Parsed JSON")
-                    st.json(output_data)
-                
-                # Validate the output has expected structure
-                if not isinstance(output_data, dict):
-                    raise Exception("Invalid output format: expected dictionary")
-                
-                # Save to session state
-                save_module_output('module1', output_data)
-                
-                # Get captured logs
-                stdout_log = stdout_capture.getvalue()
-                stderr_log = stderr_capture.getvalue()
-                
-                # Create standard log from captured output
-                timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-                
-                # Extract key information
-                num_criteria = len(output_data.get('success_criteria', []))
-                num_selected = len(output_data.get('selected_criteria', []))
-                
-                standard_log = f"""[{timestamp}] Module 1 Started
+                if content.strip():  # Only parse if file has content
+                    # Parse JSON
+                    output_data = json.loads(content)
+                    
+                    with debug_container:
+                        st.write("Step 9: Parsed JSON")
+                        st.json(output_data)
+                    
+                    # Validate the output has expected structure
+                    if not isinstance(output_data, dict):
+                        raise Exception("Invalid output format: expected dictionary")
+                    
+                    # Save to session state
+                    save_module_output('module1', output_data)
+                    
+                    # Get captured logs
+                    stdout_log = stdout_capture.getvalue()
+                    stderr_log = stderr_capture.getvalue()
+                    
+                    # Create standard log from captured output
+                    timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                    
+                    # Extract key information
+                    num_criteria = len(output_data.get('success_criteria', []))
+                    num_selected = len(output_data.get('selected_criteria', []))
+                    
+                    standard_log = f"""[{timestamp}] Module 1 Started
 [{timestamp}] Goal: {user_goal}
 [{timestamp}] Running OpenAI Agents SDK...
 [{timestamp}] Generating success criteria...
@@ -190,9 +198,9 @@ if st.button("🚀 Run Module 1", type="primary", disabled=not user_goal):
 --- Captured Output ---
 {stdout_log}
 """.strip()
-                
-                # Verbose log includes everything
-                verbose_log = f"""{standard_log}
+                    
+                    # Verbose log includes everything
+                    verbose_log = f"""{standard_log}
 
 --- Full Output JSON ---
 {json.dumps(output_data, indent=2)}
@@ -200,22 +208,24 @@ if st.button("🚀 Run Module 1", type="primary", disabled=not user_goal):
 --- Captured Stderr ---
 {stderr_log}
 """.strip()
-                
-                save_logs('module1', standard_log, verbose_log)
-                
-                # Clean up temp file
-                os.unlink(output_file)
-                
-                status_placeholder.success("✅ Module 1 completed successfully!")
-                update_module_status('module1', 'completed')
-                
-                # Show brief summary
-                with log_container:
-                    st.info(f"""
-                    **Success!** Generated {num_criteria} success criteria:
-                    - Selected top {num_selected} criteria for evaluation
-                    - See output below for details
-                    """)
+                    
+                    save_logs('module1', standard_log, verbose_log)
+                    
+                    # Clean up temp file
+                    os.unlink(output_file)
+                    
+                    status_placeholder.success("✅ Module 1 completed successfully!")
+                    update_module_status('module1', 'completed')
+                    
+                    # Show brief summary
+                    with log_container:
+                        st.info(f"""
+                        **Success!** Generated {num_criteria} success criteria:
+                        - Selected top {num_selected} criteria for evaluation
+                        - See output below for details
+                        """)
+                else:
+                    raise Exception("Output file is empty - module may have failed silently")
                 
             else:
                 with debug_container:
