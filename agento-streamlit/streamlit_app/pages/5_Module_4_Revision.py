@@ -322,8 +322,9 @@ if st.button("🚀 Run Module 4: Identify Revisions", type="primary"):
                     
                     # Extract key information
                     item_details = output_data.get('item_details', [])
-                    revisions_requested = sum(1 for item in item_details if item.get('revision_request'))
-                    revisions_approved = sum(1 for item in item_details 
+                    valid_items = [item for item in item_details if item is not None]
+                    revisions_requested = sum(1 for item in valid_items if item.get('revision_request'))
+                    revisions_approved = sum(1 for item in valid_items 
                                            if item.get('revision_evaluation') and
                                            item.get('revision_evaluation', {}).get('approved'))
                     coverage_summary = output_data.get('criteria_coverage_summary', {})
@@ -406,8 +407,10 @@ if st.session_state.module_outputs.get('module4'):
     
     # Display key metrics
     item_details = output_data.get('item_details', [])
-    revisions_requested = sum(1 for item in item_details if item.get('revision_request'))
-    revisions_approved = sum(1 for item in item_details 
+    # Filter out None items first
+    valid_items = [item for item in item_details if item is not None]
+    revisions_requested = sum(1 for item in valid_items if item.get('revision_request'))
+    revisions_approved = sum(1 for item in valid_items 
                            if item.get('revision_evaluation') and 
                            item.get('revision_evaluation', {}).get('approved'))
     revisions_rejected = revisions_requested - revisions_approved
@@ -454,9 +457,12 @@ if st.session_state.module_outputs.get('module4'):
     
     # Show item details and revision recommendations
     if item_details:
+        # Filter out None items
+        valid_items = [item for item in item_details if item is not None]
+        
         st.subheader("📋 Revision Recommendations by Plan Item")
         
-        for i, item_detail in enumerate(item_details, 1):
+        for i, item_detail in enumerate(valid_items, 1):
             item_title = item_detail.get('item_title', f'Item {i}')
             revision_request = item_detail.get('revision_request')
             revision_evaluation = item_detail.get('revision_evaluation')
