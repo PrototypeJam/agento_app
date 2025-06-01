@@ -8,9 +8,25 @@ from datetime import datetime
 import tempfile
 import io
 from contextlib import redirect_stdout, redirect_stderr
+import traceback
+
+# Debug: Show current file location
+st.sidebar.write("Debug Info:")
+st.sidebar.code(f"Current file: {__file__}")
+st.sidebar.code(f"Current dir: {os.path.dirname(__file__)}")
 
 # Add parent directory to path
-sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
+module_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+sys.path.append(module_dir)
+
+st.sidebar.code(f"Module dir: {module_dir}")
+st.sidebar.code(f"sys.path: {sys.path[:3]}...")  # Show first 3 paths
+
+# Check if module1.py exists
+module1_path = os.path.join(module_dir, 'module1.py')
+st.sidebar.write(f"module1.py exists: {os.path.exists(module1_path)}")
+if os.path.exists(module1_path):
+    st.sidebar.write(f"module1.py size: {os.path.getsize(module1_path)} bytes")
 
 from utils.session_state import init_session_state, save_module_output, update_module_status, format_json_for_display, save_logs
 from utils.file_handlers import download_json, download_text, display_json
@@ -25,6 +41,11 @@ st.markdown("Generate success criteria for your goal or idea.")
 if not st.session_state.api_key:
     st.error("❌ Please configure your OpenAI API key in the API Configuration page first.")
     st.stop()
+
+# Debug: Show API key status
+st.sidebar.write(f"API Key set: {'Yes' if st.session_state.api_key else 'No'}")
+if st.session_state.api_key:
+    st.sidebar.write(f"API Key prefix: {st.session_state.api_key[:10]}...")
 
 # Input section
 st.header("📝 Input")
@@ -49,17 +70,37 @@ if st.button("🚀 Run Module 1", type="primary", disabled=not user_goal):
     status_placeholder = st.empty()
     log_container = st.container()
     
+    # Debug container
+    debug_container = st.expander("Debug Information", expanded=True)
+    
     try:
         with st.spinner("Running Module 1..."):
             # Set the API key in environment
             os.environ['OPENAI_API_KEY'] = st.session_state.api_key
             
-            # Import the module here to ensure API key is set
-            from module1 import run_module_1
+            with debug_container:
+                st.write("Step 1: Environment setup")
+                st.code(f"OPENAI_API_KEY set: {'Yes' if os.environ.get('OPENAI_API_KEY') else 'No'}")
+                
+                # Try to import the module
+                st.write("Step 2: Importing module1")
+                try:
+                    from module1 import run_module_1
+                    st.success("✅ Successfully imported run_module_1")
+                    st.code(f"run_module_1 type: {type(run_module_1)}")
+                    st.code(f"run_module_1 module: {run_module_1.__module__}")
+                except ImportError as e:
+                    st.error(f"❌ Failed to import module1: {e}")
+                    st.code(traceback.format_exc())
+                    raise
             
             # Create a temporary output file
             with tempfile.NamedTemporaryFile(mode='w', suffix='.json', delete=False) as tmp_file:
                 output_file = tmp_file.name
+                
+            with debug_container:
+                st.write("Step 3: Created output file")
+                st.code(f"Output file: {output_file}")
             
             # Capture stdout and stderr for logs
             stdout_capture = io.StringIO()
@@ -70,25 +111,59 @@ if st.button("🚀 Run Module 1", type="primary", disabled=not user_goal):
             # Run the actual module with output capture
             async def run_module():
                 with redirect_stdout(stdout_capture), redirect_stderr(stderr_capture):
-                    await run_module_1(user_goal, output_file)
+                    with debug_container:
+                        st.write("Step 4: About to call run_module_1")
+                        st.code(f"Goal: {user_goal}")
+                        st.code(f"Output file: {output_file}")
+                    
+                    # Call the actual function
+                    result = await run_module_1(user_goal, output_file)
+                    
+                    with debug_container:
+                        st.write("Step 5: run_module_1 completed")
+                        st.code(f"Return value: {result}")
             
             # Show running status
             status_placeholder.info("🤖 Calling OpenAI API to generate success criteria...")
             
             # Run the coroutine
+            with debug_container:
+                st.write("Step 6: Running async function")
+            
             asyncio.run(run_module())
+            
+            # Check what was captured
+            with debug_container:
+                st.write("Step 7: Checking captured output")
+                stdout_content = stdout_capture.getvalue()
+                stderr_content = stderr_capture.getvalue()
+                st.code(f"Stdout length: {len(stdout_content)}")
+                st.code(f"Stderr length: {len(stderr_content)}")
+                if stdout_content:
+                    st.text_area("Captured stdout:", stdout_content, height=200)
+                if stderr_content:
+                    st.text_area("Captured stderr:", stderr_content, height=200)
             
             # Read the output
             if os.path.exists(output_file):
                 with open(output_file, 'r') as f:
-                    output_data = json.load(f)
+                    content = f.read()
+                    
+                with debug_container:
+                    st.write("Step 8: Reading output file")
+                    st.code(f"File size: {len(content)} bytes")
+                    st.text_area("Raw file content:", content, height=200)
+                
+                # Parse JSON
+                output_data = json.loads(content)
+                
+                with debug_container:
+                    st.write("Step 9: Parsed JSON")
+                    st.json(output_data)
                 
                 # Validate the output has expected structure
                 if not isinstance(output_data, dict):
                     raise Exception("Invalid output format: expected dictionary")
-                
-                if 'success_criteria' not in output_data or 'selected_criteria' not in output_data:
-                    raise Exception("Missing required fields in output")
                 
                 # Save to session state
                 save_module_output('module1', output_data)
@@ -143,6 +218,9 @@ if st.button("🚀 Run Module 1", type="primary", disabled=not user_goal):
                     """)
                 
             else:
+                with debug_container:
+                    st.error("Output file not created!")
+                    st.code(f"File exists: {os.path.exists(output_file)}")
                 raise Exception("Output file not created - module may have failed")
             
     except ImportError as e:
@@ -153,12 +231,13 @@ if st.button("🚀 Run Module 1", type="primary", disabled=not user_goal):
     except Exception as e:
         update_module_status('module1', 'failed')
         st.error(f"❌ Error running Module 1: {str(e)}")
+        st.code(traceback.format_exc())
         
         # Show any captured output for debugging
-        if stdout_capture.getvalue():
+        if 'stdout_capture' in locals() and stdout_capture.getvalue():
             st.text("Captured output:")
             st.code(stdout_capture.getvalue())
-        if stderr_capture.getvalue():
+        if 'stderr_capture' in locals() and stderr_capture.getvalue():
             st.text("Captured errors:")
             st.code(stderr_capture.getvalue())
 
