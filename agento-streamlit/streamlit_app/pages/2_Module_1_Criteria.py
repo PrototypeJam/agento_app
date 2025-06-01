@@ -83,6 +83,13 @@ if st.button("🚀 Run Module 1", type="primary", disabled=not user_goal):
                 with open(output_file, 'r') as f:
                     output_data = json.load(f)
                 
+                # Validate the output has expected structure
+                if not isinstance(output_data, dict):
+                    raise Exception("Invalid output format: expected dictionary")
+                
+                if 'success_criteria' not in output_data or 'selected_criteria' not in output_data:
+                    raise Exception("Missing required fields in output")
+                
                 # Save to session state
                 save_module_output('module1', output_data)
                 
@@ -174,9 +181,15 @@ if st.session_state.module_outputs.get('module1'):
         st.subheader("Selected Success Criteria")
         for i, criterion in enumerate(output_data['selected_criteria'], 1):
             with st.expander(f"Criterion {i}"):
-                st.write(f"**Criteria:** {criterion.get('criteria', 'N/A')}")
-                st.write(f"**Reasoning:** {criterion.get('reasoning', 'N/A')}")
-                st.write(f"**Rating:** {criterion.get('rating', 'N/A')}/10")
+                # Handle both string and dict formats
+                if isinstance(criterion, str):
+                    st.write(criterion)
+                elif isinstance(criterion, dict):
+                    st.write(f"**Criteria:** {criterion.get('criteria', 'N/A')}")
+                    st.write(f"**Reasoning:** {criterion.get('reasoning', 'N/A')}")
+                    st.write(f"**Rating:** {criterion.get('rating', 'N/A')}/10")
+                else:
+                    st.write(f"Unexpected data type: {type(criterion)}")
     
     # Display the full output
     st.subheader("Full Output JSON")
