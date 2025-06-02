@@ -8,6 +8,9 @@ Given the current Streamlit implentation of Agento uses the OpenAI AI Agets SDK 
 
 # INQUIRY 
 
+I have an application that uses the responses API from OpenAI and I can see all the "traces" when I go to the OpenAI dashboard (eg see attached screenshot for an example) but I need to get a copy of all the traces every time the app runs somehow so that I can do analytics on them.  Is there a way to a) get and save a local copy of the traces when I run the app or b) to download or access via API the saved traces I see in the dashboard at a later time, and c) DOES IT MATTER OR CHANGE ANYTHING IF my app is using the OpenAI AI Agent SDK?  Search the web to find my answer and remember it is current version of OpenAI responses API and traces.
+
+_________________
 
 # Perplexity
 
@@ -91,7 +94,7 @@ Citations:
 ---
 Answer from Perplexity: pplx.ai/share
 
-________________
+_________________
 
 
 # ChatGPT o3 with Search
@@ -277,8 +280,7 @@ This keeps a **local ground-truth copy** while still letting you forward to the 
 [17]: https://opentelemetry.io/docs/specs/otel/logs/?utm_source=chatgpt.com "OpenTelemetry Logging"
 [18]: https://docs.openlit.io/latest/quickstart-observability?utm_source=chatgpt.com "Get started with AI Observability - OpenLIT"
 
-
-__________________
+_________________
 
 # Grok3 with Search
 
@@ -456,7 +458,6 @@ Yes, using the OpenAI Agents SDK does matter and provides specific advantages fo
 * **Analytics Tools**: For advanced analytics, consider using tools like Pandas, SQLite, or visualization libraries (e.g., Matplotlib, Seaborn) to process and visualize trace data. Langfuse also provides dashboards for visualizing metrics like latency and token usage.
 
 If you need further assistance with implementing a specific trace processor, integrating with Langfuse, or setting up analytics pipelines, please provide more details about your app’s setup (e.g., programming language, analytics requirements), and I can provide more tailored guidance.  
-
 
 _________________
 
