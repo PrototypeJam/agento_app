@@ -111,17 +111,18 @@ class AgentoTraceProcessor(TracingProcessor):
     def on_span_end(self, span: Span):
         """Called when a span is finished. Should not block or raise exceptions."""
         try:
-            # Buffer all raw spans. ``span`` may be a Pydantic model or a plain
-            # object from the OpenAI SDK. Prefer ``model_dump`` if available,
-            # otherwise fall back to ``__dict__`` or ``str(span)``.
+            # Buffer all raw spans; ``span`` might be a Pydantic model or a
+            # plain object depending on the Agents SDK version.
+            span_dict = None
             if hasattr(span, "model_dump"):
                 span_dict = span.model_dump(exclude_none=True)
             elif hasattr(span, "__dict__"):
-                span_dict = span.__dict__
-            else:
-                span_dict = {"span_repr": str(span)}
-
-            self.raw_spans_buffer.append(span_dict)
+                try:
+                    span_dict = json.loads(json.dumps(span.__dict__, default=str))
+                except Exception:
+                    span_dict = {"span_repr": repr(span)}
+            if span_dict is not None:
+                self.raw_spans_buffer.append(span_dict)
 
             # If a workflow name isn't set yet from trace, try to get it from span's trace
             # context. Prefer ``workflow_name`` but fall back to ``name`` if present.
