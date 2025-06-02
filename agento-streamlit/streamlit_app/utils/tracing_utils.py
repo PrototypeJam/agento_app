@@ -93,8 +93,10 @@ class AgentoTraceProcessor(TracingProcessor):
 
     def on_trace_start(self, trace: Trace):
         """Called when a trace is started."""
-        if trace and trace.workflow_name:
-            self.current_workflow_name = trace.workflow_name
+        # Prefer ``workflow_name`` but fall back to ``name`` if available
+        workflow = getattr(trace, "workflow_name", getattr(trace, "name", None))
+        if workflow:
+            self.current_workflow_name = workflow
 
     def on_trace_end(self, trace: Trace):
         """Called when a trace is finished."""
@@ -109,12 +111,24 @@ class AgentoTraceProcessor(TracingProcessor):
     def on_span_end(self, span: Span):
         """Called when a span is finished. Should not block or raise exceptions."""
         try:
-            # Buffer all raw spans
-            self.raw_spans_buffer.append(span.model_dump(exclude_none=True))
+            # Buffer all raw spans. ``span`` may be a Pydantic model or a plain
+            # object from the OpenAI SDK. Prefer ``model_dump`` if available,
+            # otherwise fall back to ``__dict__`` or ``str(span)``.
+            if hasattr(span, "model_dump"):
+                span_dict = span.model_dump(exclude_none=True)
+            elif hasattr(span, "__dict__"):
+                span_dict = span.__dict__
+            else:
+                span_dict = {"span_repr": str(span)}
 
-            # If a workflow name isn't set yet from trace, try to get it from span's trace context
+            self.raw_spans_buffer.append(span_dict)
+
+            # If a workflow name isn't set yet from trace, try to get it from span's trace
+            # context. Prefer ``workflow_name`` but fall back to ``name`` if present.
             if not self.current_workflow_name and hasattr(span, "trace") and span.trace:
-                self.current_workflow_name = span.trace.workflow_name
+                workflow = getattr(span.trace, "workflow_name", getattr(span.trace, "name", None))
+                if workflow:
+                    self.current_workflow_name = workflow
 
             # Check for LLM Generation Span
             is_llm_span = False
