@@ -19,9 +19,12 @@ import asyncio
 import json
 import os
 import logging
-import datetime
+from datetime import datetime
 import re
 from typing import Any, List, Dict, Optional
+
+from agents import trace as agent_trace_context
+from streamlit_app.utils.tracing_utils import init_tracing
 
 # Import OpenAI libraries
 from dotenv import load_dotenv
@@ -38,7 +41,7 @@ def setup_logging(module_name):
     """Set up logging to console, a standard file, and a verbose file."""
     logs_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "logs")
     os.makedirs(logs_dir, exist_ok=True)
-    timestamp = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+    timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
     log_file = os.path.join(logs_dir, f"{module_name}_{timestamp}.log")
     verbose_log_file = os.path.join(logs_dir, f"{module_name}_verbose_{timestamp}.log")
 
@@ -279,137 +282,146 @@ async def validate_module1_output(
             output_info={"error": str(e)}, tripwire_triggered=True
         )
 
-async def run_module_1(user_goal: str, output_file: str) -> None:
-    """Runs Module 1."""
+async def run_module_1(user_goal: str, output_file: str) -> Optional[Dict[str, Any]]:
+    """Runs Module 1 and returns generated trace file paths."""
     context = RunContextWrapper(context=None)
 
+    module_name = "module1"
+    run_id = datetime.now().strftime("%Y%m%d%H%M%S%f")
+    trace_processor = init_tracing(module_name=module_name, run_id=run_id)
+
+    final_module_output_data_dict = None
+    generated_trace_files = None
+
     try:
-        log_info(f"Starting Module 1 with goal: {user_goal}", truncate=True)
-        verbose_logger.info(f"Starting Module 1 with goal: {user_goal}")
+        async with agent_trace_context(f"{module_name}_MainWorkflow_{run_id}"):
+            log_info(f"Starting Module 1 with goal: {user_goal}", truncate=True)
+            verbose_logger.info(f"Starting Module 1 with goal: {user_goal}")
 
-        # --- Run Search Agent ---
-        log_info("Running Search Agent...", truncate=True)
-        verbose_logger.info("Running Search Agent...")
+            log_info("Running Search Agent...", truncate=True)
+            verbose_logger.info("Running Search Agent...")
+            try:
+                search_result = await Runner.run(
+                    search_agent,
+                    input=f"Find information about success criteria for: {user_goal}",
+                    context=context,
+                )
+                search_summary = search_result.final_output
+                log_info(f"Search Agent returned (truncated): {search_summary[:200]}...", truncate=True)
+                verbose_logger.info(f"Search Agent returned (full): {search_summary}")
+            except Exception as e:
+                logger.warning(f"Search Agent failed: {e}. Proceeding without search results.")
+                verbose_logger.warning(f"Search Agent failed: {e}. Proceeding without search results.")
+                search_summary = "No search results available."
 
-        try:
-            search_result = await Runner.run(
-                search_agent,
-                input=f"Find information about success criteria for: {user_goal}",
+            log_info("GENERATING CANDIDATE SUCCESS CRITERIA...", truncate=True)
+            verbose_logger.info("GENERATING CANDIDATE SUCCESS CRITERIA...")
+            criteria_result = await Runner.run(
+                generate_criteria_agent,
+                input=f"The user's goal is: {user_goal}\n\nSearch Results:\n{search_summary}",
                 context=context,
             )
-            search_summary = search_result.final_output
-            log_info(f"Search Agent returned (truncated): {search_summary[:200]}...", truncate=True)
-            verbose_logger.info(f"Search Agent returned (full): {search_summary}") # Full results
+            generated_criteria = criteria_result.final_output
+            log_info(f"Generated {len(generated_criteria)} success criteria", truncate=True)
+            verbose_logger.info(f"Generated {len(generated_criteria)} success criteria")
 
-        except Exception as e:
-            logger.warning(f"Search Agent failed: {e}. Proceeding without search results.")
-            verbose_logger.warning(f"Search Agent failed: {e}. Proceeding without search results.")
-            search_summary = "No search results available."  # Fallback message
+            for i, criterion in enumerate(generated_criteria, 1):
+                log_info(f"Criterion {i}: {criterion.criteria} (Rating: {criterion.rating})", truncate=True)
+                verbose_logger.info(f"Criterion {i}: {criterion.criteria} (Rating: {criterion.rating})")
 
-        # --- Generate criteria (with search results) ---
-        log_info("GENERATING CANDIDATE SUCCESS CRITERIA...", truncate=True)
-        verbose_logger.info("GENERATING CANDIDATE SUCCESS CRITERIA...")
+            log_info("EVALUATING AND SELECTING TOP CRITERIA...", truncate=True)
+            verbose_logger.info("EVALUATING AND SELECTING TOP CRITERIA...")
+            criteria_json = json.dumps([c.model_dump() for c in generated_criteria], indent=2)
+            evaluation_input = (
+                f"Goal: {user_goal}\n\nSearch Results:\n{search_summary}\n\nCriteria:\n{criteria_json}"
+            )
+            log_info(f"Evaluation input (truncated): {evaluation_input[:500]}...", truncate=True)
+            verbose_logger.info(f"Evaluation input (full): {evaluation_input}")
+            evaluation_result = await Runner.run(
+                evaluate_criteria_agent,
+                input=evaluation_input,
+                context=context,
+            )
+            selected_criteria = evaluation_result.final_output
+            log_info(f"Selected {len(selected_criteria)} top criteria", truncate=True)
+            verbose_logger.info(f"Selected {len(selected_criteria)} top criteria")
 
-        criteria_result = await Runner.run(
-            generate_criteria_agent,
-            input=f"The user's goal is: {user_goal}\n\nSearch Results:\n{search_summary}",
-            context=context,
-        )
-        generated_criteria = criteria_result.final_output
-        log_info(f"Generated {len(generated_criteria)} success criteria", truncate=True)
-        verbose_logger.info(f"Generated {len(generated_criteria)} success criteria")
+            for i, criterion in enumerate(selected_criteria, 1):
+                log_info(f"Selected Criterion {i}: {criterion.criteria} (Rating: {criterion.rating})", truncate=True)
+                verbose_logger.info(f"Selected Criterion {i}: {criterion.criteria} (Rating: {criterion.rating})")
 
-        # Log each criterion
-        for i, criterion in enumerate(generated_criteria, 1):
-            log_info(f"Criterion {i}: {criterion.criteria} (Rating: {criterion.rating})", truncate=True)
-            verbose_logger.info(f"Criterion {i}: {criterion.criteria} (Rating: {criterion.rating})") # Redundant but consistent
+            log_info("CREATING MODULE 1 OUTPUT OBJECT...", truncate=True)
+            verbose_logger.info("CREATING MODULE 1 OUTPUT OBJECT...")
+            module_1_output_pydantic = Module1Output(
+                goal=user_goal,
+                success_criteria=generated_criteria,
+                selected_criteria=selected_criteria,
+            )
+            verbose_logger.info(
+                f"Complete Module 1 output: {json.dumps(module_1_output_pydantic.model_dump(), indent=2)}"
+            )
 
+            log_info("Applying output guardrail...", truncate=True)
+            verbose_logger.info("Applying output guardrail...")
+            guardrail = OutputGuardrail(guardrail_function=validate_module1_output)
+            guardrail_result = await guardrail.run(
+                agent=evaluate_criteria_agent,
+                agent_output=module_1_output_pydantic,
+                context=context,
+            )
+            if guardrail_result.output.tripwire_triggered:
+                logger.error(f"Guardrail failed: {guardrail_result.output.output_info}")
+                verbose_logger.error(f"Guardrail failed: {guardrail_result.output.output_info}")
+                return None
 
-        # Select top criteria
-        log_info("EVALUATING AND SELECTING TOP CRITERIA...", truncate=True)
-        verbose_logger.info("EVALUATING AND SELECTING TOP CRITERIA...")
+            final_module_output_data_dict = module_1_output_pydantic.model_dump()
 
-        # Format criteria for the evaluator
-        criteria_json = json.dumps([c.model_dump() for c in generated_criteria], indent=2)
-        evaluation_input = (
-            f"Goal: {user_goal}\n\nSearch Results:\n{search_summary}\n\nCriteria:\n{criteria_json}"
-        )
-        log_info(f"Evaluation input (truncated): {evaluation_input[:500]}...", truncate=True)
-        verbose_logger.info(f"Evaluation input (full): {evaluation_input}")
+    except Exception as e_core_logic:
+        logger.error(f"Error during Module 1 core logic (within agent_trace_context): {e_core_logic}")
+        verbose_logger.error(f"Error during Module 1 core logic: {e_core_logic}", exc_info=True)
+        if final_module_output_data_dict is None:
+            final_module_output_data_dict = {"error": f"Core logic failed: {e_core_logic}"}
+    finally:
+        if trace_processor:
+            try:
+                trace_processor.finalize_and_write_files()
+                generated_trace_files = trace_processor.get_generated_file_paths()
+                log_info(
+                    f"Trace files finalized for Module 1, Run ID {run_id}: {generated_trace_files}",
+                    truncate=True,
+                )
+            except Exception as e_finalize:
+                logger.error(f"Error finalizing/writing trace files for Module 1, Run ID {run_id}: {e_finalize}")
+                verbose_logger.error(f"Error finalizing/writing trace files: {e_finalize}", exc_info=True)
 
+        if final_module_output_data_dict:
+            try:
+                module_output_dir = os.path.dirname(output_file)
+                os.makedirs(module_output_dir, exist_ok=True)
 
-        evaluation_result = await Runner.run(
-            evaluate_criteria_agent,
-            input=evaluation_input,
-            context=context,
-        )
-        selected_criteria = evaluation_result.final_output
-        log_info(f"Selected {len(selected_criteria)} top criteria", truncate=True)
-        verbose_logger.info(f"Selected {len(selected_criteria)} top criteria")
+                module_output_timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+                base_output_filename, output_ext = os.path.splitext(os.path.basename(output_file))
 
-        # Log selected criteria
-        for i, criterion in enumerate(selected_criteria, 1):
-            log_info(f"Selected Criterion {i}: {criterion.criteria} (Rating: {criterion.rating})", truncate=True)
-            verbose_logger.info(f"Selected Criterion {i}: {criterion.criteria} (Rating: {criterion.rating})")
+                with open(output_file, "w", encoding="utf-8") as f:
+                    json.dump(final_module_output_data_dict, f, indent=4)
+                log_info(f"Module 1 primary output saved to {output_file}", truncate=True)
 
-        # Create the output object using Pydantic
-        log_info("CREATING MODULE 1 OUTPUT OBJECT...", truncate=True)
-        verbose_logger.info("CREATING MODULE 1 OUTPUT OBJECT...")
+                timestamped_module_output_filename = os.path.join(
+                    module_output_dir, f"{base_output_filename}_{module_output_timestamp}{output_ext}"
+                )
+                with open(timestamped_module_output_filename, "w", encoding="utf-8") as f_ts:
+                    json.dump(final_module_output_data_dict, f_ts, indent=4)
+                log_info(
+                    f"Timestamped Module 1 primary output saved to {timestamped_module_output_filename}",
+                    truncate=True,
+                )
+            except Exception as e_save_output:
+                logger.error(f"Error saving Module 1 primary output file: {e_save_output}")
+                verbose_logger.error(f"Error saving Module 1 primary output: {e_save_output}", exc_info=True)
+        else:
+            log_info("No final module output data to save for Module 1.", truncate=False)
 
-        module_1_output = Module1Output(
-            goal=user_goal,
-            success_criteria=generated_criteria,
-            selected_criteria=selected_criteria,  # Multiple criteria
-        )
-
-        # Log the complete output (only to verbose log)
-        verbose_logger.info(f"Complete Module 1 output: {json.dumps(module_1_output.model_dump(), indent=2)}")
-
-        # Add the output guardrail
-        log_info("Applying output guardrail...", truncate=True)
-        verbose_logger.info("Applying output guardrail...")
-
-        guardrail = OutputGuardrail(guardrail_function=validate_module1_output)
-        guardrail_result = await guardrail.run(
-            agent=evaluate_criteria_agent,
-            agent_output=module_1_output,
-            context=context
-        )
-
-        if guardrail_result.output.tripwire_triggered:
-            logger.error(f"Guardrail failed: {guardrail_result.output.output_info}")
-            verbose_logger.error(f"Guardrail failed: {guardrail_result.output.output_info}")
-            return
-
-        # --- Smart JSON Export ---
-        # Create data directory if it doesn't exist
-        output_dir = os.path.dirname(output_file)
-        os.makedirs(output_dir, exist_ok=True)
-        
-        # Create timestamped version
-        timestamp = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
-        filename = os.path.basename(output_file)
-        name, ext = os.path.splitext(filename)
-        timestamped_file = os.path.join(output_dir, f"{name}_{timestamp}{ext}")
-        
-        # Export both versions
-        with open(output_file, "w") as f:
-            json.dump(module_1_output.model_dump(), f, indent=4)
-        with open(timestamped_file, "w") as f:
-            json.dump(module_1_output.model_dump(), f, indent=4)
-        
-        log_info(f"Module 1 completed. Output saved to {output_file}", truncate=True)
-        log_info(f"Timestamped output saved to {timestamped_file}", truncate=True)
-        verbose_logger.info(f"Module 1 completed. Output saved to {output_file}")
-        verbose_logger.info(f"Timestamped output saved to {timestamped_file}")
-
-    except Exception as e:
-        logger.error(f"An error occurred in Module 1: {e}")
-        verbose_logger.error(f"An error occurred in Module 1: {e}")
-        import traceback
-        error_trace = traceback.format_exc()
-        logger.error(error_trace)
-        verbose_logger.error(error_trace)  # Log the full stack trace
+    return generated_trace_files
 
 async def main():
     log_info("Starting main function", truncate=True)
