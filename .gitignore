@@ -197,3 +197,14 @@ cython_debug/
 # MAC
 
 .DS_Store
+
+
+# ... other ignores ...
+agento-streamlit/traces/
+agento-streamlit/data/ # If module outputs are not version controlled
+agento-streamlit/logs/ # If logs are not version controlled
+.env
+__pycache__/
+*.pyc
+.venv/
+venv/
