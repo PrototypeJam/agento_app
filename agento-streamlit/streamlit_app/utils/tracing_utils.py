@@ -6,7 +6,7 @@ from typing import List, Dict, Any, Optional
 
 from pydantic import BaseModel
 from agents import TracingProcessor, Span, Trace, add_trace_processor # Corrected: TracingProcessor
-from agents.processors import OTLPHTTPTraceSpanProcessor
+from agents.tracing.processors import OTLPHTTPTraceSpanProcessor
 
 # --- Directory Setup ---
 TRACES_ROOT_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "traces"))
