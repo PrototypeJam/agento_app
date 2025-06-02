@@ -1,11 +1,11 @@
 import json
 import os
 import csv
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import List, Dict, Any, Optional
 
 from pydantic import BaseModel
-from agents import TraceProcessor, Span, Trace, add_trace_processor
+from agents import TracingProcessor, Span, Trace, add_trace_processor # Corrected: TracingProcessor
 from agents.processors import OTLPHTTPTraceSpanProcessor
 
 # --- Directory Setup ---
@@ -15,6 +15,7 @@ EVAL_SETS_DIR = os.path.join(TRACES_ROOT_DIR, "eval_sets")
 
 os.makedirs(RAW_SDK_SPANS_DIR, exist_ok=True)
 os.makedirs(EVAL_SETS_DIR, exist_ok=True)
+print(f"[tracing_utils] TRACES_ROOT_DIR initialized to: {TRACES_ROOT_DIR}") # Debug print
 
 
 class LLMCallRecord(BaseModel):
@@ -39,10 +40,12 @@ class LLMCallRecord(BaseModel):
     expected_output: str = ""
 
 
-COST_PER_MODEL_PER_TOKEN = {
-    "gpt-4o": {"prompt": 0.005 / 1000, "completion": 0.015 / 1000, "default_avg": 0.010 / 1000},
-    "gpt-4": {"prompt": 0.03 / 1000, "completion": 0.06 / 1000, "default_avg": 0.045 / 1000},
-    "gpt-3.5-turbo": {"prompt": 0.0005 / 1000, "completion": 0.0015 / 1000, "default_avg": 0.001 / 1000},
+COST_PER_MODEL_TOKEN = {
+    "gpt-4o": {"prompt": 0.005 / 1000, "completion": 0.015 / 1000},
+    "gpt-4o-mini": {"prompt": 0.00015 / 1000, "completion": 0.0006 / 1000},
+    "gpt-4-turbo": {"prompt": 0.01 / 1000, "completion": 0.03 / 1000},
+    "gpt-4": {"prompt": 0.03 / 1000, "completion": 0.06 / 1000},
+    "gpt-3.5-turbo": {"prompt": 0.0005 / 1000, "completion": 0.0015 / 1000},
 }
 
 
@@ -50,22 +53,24 @@ def _calculate_cost(
     model_name: Optional[str],
     prompt_tokens: Optional[int],
     completion_tokens: Optional[int],
-    total_tokens: Optional[int],
 ) -> Optional[float]:
-    if not model_name:
+    if not model_name or (prompt_tokens is None and completion_tokens is None):
         return None
 
     normalized_model_name = model_name.lower()
-    for model_key, costs in COST_PER_MODEL_PER_TOKEN.items():
-        if model_key in normalized_model_name:
-            if prompt_tokens is not None and completion_tokens is not None:
-                return (prompt_tokens * costs["prompt"]) + (completion_tokens * costs["completion"])
-            elif total_tokens is not None:
-                return total_tokens * costs["default_avg"]
+
+    for model_key_substring, costs in COST_PER_MODEL_TOKEN.items():
+        if model_key_substring in normalized_model_name:
+            calculated_cost = 0.0
+            if prompt_tokens is not None:
+                calculated_cost += prompt_tokens * costs["prompt"]
+            if completion_tokens is not None:
+                calculated_cost += completion_tokens * costs["completion"]
+            return calculated_cost if calculated_cost > 0.0 else None
     return None
 
 
-class AgentoTraceProcessor(TraceProcessor):
+class AgentoTraceProcessor(TracingProcessor): # Corrected: TracingProcessor
     def __init__(self, module_name: str, run_id: str):
         self.module_name = module_name
         self.run_id = run_id
@@ -156,7 +161,7 @@ class AgentoTraceProcessor(TraceProcessor):
                 latency = (span.end_time - span.start_time).total_seconds() * 1000
 
             model_name = attributes.get("model", attributes.get("openai.llm.model"))
-            cost = _calculate_cost(model_name, prompt_tokens, completion_tokens, total_tokens)
+            cost = _calculate_cost(model_name, prompt_tokens, completion_tokens)
 
             record = LLMCallRecord(
                 trace_id=span.trace_id,
@@ -165,7 +170,7 @@ class AgentoTraceProcessor(TraceProcessor):
                 workflow_name=self.current_workflow_name or f"{self.module_name}_Workflow_{self.run_id}",
                 module_name=self.module_name,
                 agent_name=span.attributes.get("agent.name", span.attributes.get("agent_name")),
-                timestamp=span.end_time.isoformat() if span.end_time else datetime.now().isoformat(),
+                timestamp=(span.end_time or datetime.now(timezone.utc)).isoformat(),
                 model=model_name,
                 system_prompt=system_prompt_content,
                 full_input_prompt=full_input_prompt_str,

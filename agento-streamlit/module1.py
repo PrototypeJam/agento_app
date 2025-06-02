@@ -19,7 +19,7 @@ import asyncio
 import json
 import os
 import logging
-from datetime import datetime
+from datetime import datetime, timezone
 import re
 from typing import Any, List, Dict, Optional
 
@@ -287,7 +287,7 @@ async def run_module_1(user_goal: str, output_file: str) -> Optional[Dict[str, A
     context = RunContextWrapper(context=None)
 
     module_name = "module1"
-    run_id = datetime.now().strftime("%Y%m%d%H%M%S%f")
+    run_id = datetime.now(timezone.utc).strftime("%Y%m%d%H%M%S%f")
     trace_processor = init_tracing(module_name=module_name, run_id=run_id)
 
     final_module_output_data_dict = None
