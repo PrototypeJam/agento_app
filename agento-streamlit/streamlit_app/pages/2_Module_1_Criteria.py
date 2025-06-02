@@ -140,16 +140,15 @@ if st.button("🚀 Run Module 1", type="primary", disabled=not user_goal):
                     st.write("Step 4: About to call run_module_1")
                     st.code(f"Goal being passed: {user_goal}")
                     st.code(f"Output file: {output_file}")
-                
-                # Call the actual function with captured output
+
                 with redirect_stdout(stdout_capture), redirect_stderr(stderr_capture):
-                    result = await run_module_1(user_goal, output_file)
-                
+                    returned_value_from_backend = await run_module_1(user_goal, output_file)
+
                 with debug_container:
                     st.write("Step 5: run_module_1 completed")
-                    st.code(f"Return value: {result}")
-                
-                return result
+                    st.code(f"Return value from backend run_module_1: {returned_value_from_backend}")
+
+                return returned_value_from_backend
             
             # Show running status
             status_placeholder.info("🤖 Calling OpenAI API to generate success criteria...")
@@ -159,7 +158,7 @@ if st.button("🚀 Run Module 1", type="primary", disabled=not user_goal):
                 st.write("Step 6: Running async function safely")
             
             # Use our safe async runner
-            result = run_async_function(run_module_async())
+            trace_files_info_dict_or_none = run_async_function(run_module_async())
             
             # Check what was captured
             with debug_container:
@@ -200,6 +199,19 @@ if st.button("🚀 Run Module 1", type="primary", disabled=not user_goal):
                     
                     # Save to session state
                     save_module_output('module1', output_data)
+
+                    if trace_files_info_dict_or_none:
+                        if 'current_logs' not in st.session_state:
+                            st.session_state.current_logs = {}
+                        if 'module1' not in st.session_state.current_logs:
+                            st.session_state.current_logs['module1'] = {}
+                        st.session_state.current_logs['module1']['trace_files_info'] = trace_files_info_dict_or_none
+                        with debug_container:
+                            st.write("Debug: Stored trace_files_info for module1 into session state.")
+                            st.json(trace_files_info_dict_or_none)
+                    else:
+                        with debug_container:
+                            st.warning("Debug: No trace_files_info_dict returned or it was None. Trace files might not have been generated.")
                     
                     # Get captured logs
                     stdout_log = stdout_capture.getvalue()
@@ -324,6 +336,47 @@ if st.session_state.module_outputs.get('module1'):
     with col3:
         if logs.get('verbose'):
             download_text(logs['verbose'], "module1_verbose.log", "📥 Download Verbose Log")
+
+    st.markdown("---")
+    st.subheader("📊 Trace File Downloads")
+    trace_dl_cols = st.columns(2)
+    module1_logs_session = st.session_state.current_logs.get('module1', {})
+    trace_files_info_from_session = module1_logs_session.get('trace_files_info')
+
+    if trace_files_info_from_session and isinstance(trace_files_info_from_session, dict):
+        raw_sdk_path = trace_files_info_from_session.get("raw_sdk_spans_jsonl")
+        if raw_sdk_path and os.path.exists(raw_sdk_path):
+            with open(raw_sdk_path, 'r', encoding='utf-8') as f_raw_sdk:
+                raw_sdk_content = f_raw_sdk.read()
+            with trace_dl_cols[0]:
+                st.download_button(
+                    label="📥 Download Raw SDK Spans (JSONL)",
+                    data=raw_sdk_content,
+                    file_name=os.path.basename(raw_sdk_path),
+                    mime='application/jsonl',
+                    key=f"download_raw_sdk_{os.path.basename(raw_sdk_path)}"
+                )
+        elif raw_sdk_path:
+            with trace_dl_cols[0]:
+                st.caption(f"File not found: {os.path.basename(raw_sdk_path)}")
+
+        eval_csv_path = trace_files_info_from_session.get("eval_data_csv")
+        if eval_csv_path and os.path.exists(eval_csv_path):
+            with open(eval_csv_path, 'r', encoding='utf-8') as f_eval_csv:
+                eval_csv_content = f_eval_csv.read()
+            with trace_dl_cols[1]:
+                st.download_button(
+                    label="📥 Download Eval Data (CSV)",
+                    data=eval_csv_content,
+                    file_name=os.path.basename(eval_csv_path),
+                    mime='text/csv',
+                    key=f"download_eval_csv_{os.path.basename(eval_csv_path)}"
+                )
+        elif eval_csv_path:
+            with trace_dl_cols[1]:
+                st.caption(f"File not found: {os.path.basename(eval_csv_path)}")
+    else:
+        st.caption("Trace files for Module 1 are not yet available or failed to generate.")
     
     # Send to next module button
     st.markdown("---")
