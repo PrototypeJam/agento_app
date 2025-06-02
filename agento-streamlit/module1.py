@@ -294,7 +294,7 @@ async def run_module_1(user_goal: str, output_file: str) -> Optional[Dict[str, A
     generated_trace_files = None
 
     try:
-        async with agent_trace_context(f"{module_name}_MainWorkflow_{run_id}"):
+        with agent_trace_context(f"{module_name}_MainWorkflow_{run_id}"):
             log_info(f"Starting Module 1 with goal: {user_goal}", truncate=True)
             verbose_logger.info(f"Starting Module 1 with goal: {user_goal}")
 
