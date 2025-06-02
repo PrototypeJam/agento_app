@@ -5,8 +5,16 @@ from datetime import datetime, timezone
 from typing import List, Dict, Any, Optional
 
 from pydantic import BaseModel
-from agents import TracingProcessor, Span, Trace, add_trace_processor # Corrected: TracingProcessor
-from agents.tracing.processors import OTLPHTTPTraceSpanProcessor
+from agents import TracingProcessor, Span, Trace, add_trace_processor
+
+# Attempt to import OpenTelemetry components for optional OTLP export
+try:
+    from opentelemetry.sdk.trace import TracerProvider
+    from opentelemetry.exporter.otlp.proto.http.trace_exporter import OTLPSpanExporter
+    from opentelemetry.sdk.trace.export import BatchSpanProcessor
+    OTEL_AVAILABLE = True
+except Exception:
+    OTEL_AVAILABLE = False
 
 # --- Directory Setup ---
 TRACES_ROOT_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "traces"))
@@ -226,14 +234,21 @@ def init_tracing(module_name: str, run_id: str) -> AgentoTraceProcessor:
     print(f"Registered AgentoTraceProcessor for {module_name}, run {run_id}")
 
     otel_endpoint = os.environ.get("OTEL_EXPORTER_OTLP_TRACES_ENDPOINT")
-    if otel_endpoint:
+    if otel_endpoint and OTEL_AVAILABLE:
         try:
-            otel_sdk_processor = OTLPHTTPTraceSpanProcessor(endpoint=otel_endpoint)
-            add_trace_processor(otel_sdk_processor)
-            print(f"Registered OTLPHTTPTraceSpanProcessor to endpoint: {otel_endpoint}")
+            provider = TracerProvider()
+            exporter = OTLPSpanExporter(endpoint=otel_endpoint)
+            span_processor = BatchSpanProcessor(exporter)
+            provider.add_span_processor(span_processor)
+            print(f"OTLP endpoint configured: {otel_endpoint}")
+            print(
+                "Note: Direct OTLP export requires bridging Agento spans to OpenTelemetry traces."
+            )
         except Exception as e:
-            print(f"Failed to initialize OTLPHTTPTraceSpanProcessor: {e}")
+            print(f"Failed to initialize OTLP components: {e}")
+    elif otel_endpoint:
+        print("OpenTelemetry libraries not available. Cannot enable OTLP export.")
     else:
-        print("OTEL_EXPORTER_OTLP_TRACES_ENDPOINT not set. Skipping OTLPHTTPTraceSpanProcessor.")
+        print("OTEL_EXPORTER_OTLP_TRACES_ENDPOINT not set. Skipping OTLP export.")
 
     return agento_file_processor
